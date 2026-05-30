@@ -1,0 +1,53 @@
+name: Deploy Privacy Policies to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build site
+        run: |
+          mkdir -p _site
+          for app_dir in */; do
+            app_name="${app_dir%/}"
+            if [ -d "${app_dir}docs" ]; then
+              echo "Copying ${app_dir}docs/ → _site/${app_name}/"
+              mkdir -p "_site/${app_name}"
+              cp -r "${app_dir}docs/." "_site/${app_name}/"
+              # Serve privacy-policy.html as the directory index
+              if [ -f "_site/${app_name}/privacy-policy.html" ] && [ ! -f "_site/${app_name}/index.html" ]; then
+                cp "_site/${app_name}/privacy-policy.html" "_site/${app_name}/index.html"
+              fi
+            fi
+          done
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
